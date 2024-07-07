@@ -7,20 +7,20 @@ class MyApp(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
 
-        # Загружаем модель игрока
+        
         self.player = self.loader.loadModel("models/panda-model")
         self.player.reparentTo(self.render)
         self.player.setScale(0.005, 0.005, 0.005)
         self.player.setPos(LPoint3(0, 0, 0))
 
-        # Создание пола
+        
         cm = CardMaker('floor')
-        cm.setFrame(-10, 10, -10, 10)  # размеры пола
+        cm.setFrame(-10, 10, -10, 10)  
         self.floor = self.render.attachNewNode(cm.generate())
-        self.floor.setPos(0, 10, -0.5)  # установка пола по координатам
-        self.floor.setHpr(0, -90, 0)  # поворот пола
+        self.floor.setPos(0, 10, -0.5)  
+        self.floor.setHpr(0, -90, 0)  
 
-        # Создание границ коробки
+        
         self.camera_limits = {
             "left": -15,
             "right": 15,
@@ -30,10 +30,10 @@ class MyApp(ShowBase):
             "far": 25
         }
 
-        # Углы поворота камеры
+        
         self.camera_angles = {"h": 0, "p": 0, "r": 0}
 
-        # Привязка клавиш к функциям
+        
         self.accept("arrow_up", self.set_key, ["up", True])
         self.accept("arrow_up-up", self.set_key, ["up", False])
         self.accept("arrow_down", self.set_key, ["down", True])
@@ -61,11 +61,11 @@ class MyApp(ShowBase):
         self.bullets = []
         self.enemies = []
 
-        # Настройка системы обработки столкновений
+        
         self.cTrav = CollisionTraverser()
         self.cHandler = CollisionHandlerQueue()
 
-        # Добавление коллизии для игрока
+        
         self.player_coll_sphere = CollisionSphere(0, 0, 0, 1)
         self.player_coll_node = CollisionNode('player')
         self.player_coll_node.addSolid(self.player_coll_sphere)
@@ -74,10 +74,10 @@ class MyApp(ShowBase):
         self.player_coll_np = self.player.attachNewNode(self.player_coll_node)
         self.cTrav.addCollider(self.player_coll_np, self.cHandler)
 
-        # Создание врагов
+        
         self.create_enemies()
 
-        # Добавление функции обновления в цикл задач
+        
         self.taskMgr.add(self.update, "update")
 
     def set_key(self, key, value):
@@ -116,7 +116,7 @@ class MyApp(ShowBase):
         self.bullets.append(bullet)
         print(f"Bullet created at {bullet.getPos()}")
 
-        # Добавление коллизии для снаряда
+        
         bullet_coll_sphere = CollisionSphere(0, 0, 0, 0.1)
         bullet_coll_node = CollisionNode('bullet')
         bullet_coll_node.addSolid(bullet_coll_sphere)
@@ -134,7 +134,7 @@ class MyApp(ShowBase):
             self.enemies.append(enemy)
             print(f"Enemy {i} created at {enemy.getPos()}")
 
-            # Добавление хитбокса для врага
+            
             hitbox = CollisionBox(LPoint3(0, 0, 0), 1, 1, 1)
             hitbox_node = CollisionNode(f'hitbox-{i}')
             hitbox_node.addSolid(hitbox)
@@ -150,7 +150,7 @@ class MyApp(ShowBase):
         self.rotate_camera(dt)
         self.limit_camera_position()
 
-        # Перемещение пуль
+        
         for bullet in self.bullets:
             bullet.setY(bullet, 0.5)
             if bullet.getY() > 50:
@@ -158,7 +158,7 @@ class MyApp(ShowBase):
                 bullet.removeNode()
                 self.bullets.remove(bullet)
 
-        # Перемещение врагов
+        
         for enemy in self.enemies:
             enemy.setY(enemy, -0.05)
             if enemy.getY() < -10:
@@ -166,7 +166,7 @@ class MyApp(ShowBase):
 
         self.cTrav.traverse(self.render)
 
-        # Проверка столкновений и установка флагов для удаления объектов
+        
         to_remove_bullets = []
         to_remove_enemies = []
 
@@ -181,7 +181,7 @@ class MyApp(ShowBase):
                 to_remove_bullets.append(from_obj)
                 to_remove_enemies.append(into_obj.getParent())
 
-        # Удаление объектов после итерации
+       
         for bullet in to_remove_bullets:
             if bullet in self.bullets:
                 print(f"Removing bullet at {bullet.getPos()}")
