@@ -1,12 +1,12 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LPoint3, CollisionNode, CollisionSphere, CollisionBox, CollisionTraverser, CollisionHandlerQueue, BitMask32, CardMaker
+from panda3d.core import LPoint3, CollisionNode, CollisionSphere, CollisionBox, CollisionTraverser, CollisionHandlerQueue, BitMask32, CardMaker, CollisionHandlerPusher, Vec3
 from panda3d.core import ClockObject
 import random
 
 class MyApp(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
-
+        self.disableMouse()
         
         self.player = self.loader.loadModel("models/panda-model")
         self.player.reparentTo(self.render)
@@ -64,7 +64,6 @@ class MyApp(ShowBase):
         
         self.cTrav = CollisionTraverser()
         self.cHandler = CollisionHandlerQueue()
-
         
         self.player_coll_sphere = CollisionSphere(0, 0, 0, 1)
         self.player_coll_node = CollisionNode('player')
@@ -77,18 +76,20 @@ class MyApp(ShowBase):
         
         self.create_enemies()
 
-        
+        pos = self.player.get_pos()
+        self.camera.setPos(LPoint3(-pos[0], -pos[1], 5))
+        self.camera.reparentTo(self.render)
         self.taskMgr.add(self.update, "update")
 
     def set_key(self, key, value):
         self.keys[key] = value
 
     def move_player(self, dt):
-        speed = 25 * dt
+        speed = 50 * dt
         if self.keys["up"]:
-            self.player.setY(self.player, speed)
+            self.player.setZ(self.player, speed)
         if self.keys["down"] and self.player.getY() > 0:
-            self.player.setY(self.player, -speed)
+            self.player.setZ(self.player, -speed)
         if self.keys["left"]:
             self.player.setX(self.player, -speed)
         if self.keys["right"]:
@@ -117,31 +118,43 @@ class MyApp(ShowBase):
         print(f"Bullet created at {bullet.getPos()}")
 
         
-        bullet_coll_sphere = CollisionSphere(0, 0, 0, 0.1)
+        bullet_coll_sphere = CollisionSphere(0, 0, 0, 0.1) 
         bullet_coll_node = CollisionNode('bullet')
         bullet_coll_node.addSolid(bullet_coll_sphere)
-        bullet_coll_node.setFromCollideMask(BitMask32.bit(1))
-        bullet_coll_node.setIntoCollideMask(BitMask32.allOff())
         bullet_coll_np = bullet.attachNewNode(bullet_coll_node)
         self.cTrav.addCollider(bullet_coll_np, self.cHandler)
+
+    # Пример создания графики для хитбокса
+    def create_hitbox_visual(self, enemy, hit_box_size):
+        hitbox_viz = self.loader.loadModel("models/box")
+        hitbox_viz.reparentTo(enemy)
+        hitbox_viz.setScale(hit_box_size)  # Установите масштаб таким образом, чтобы он соответствовал размерам хитбокса
+        hitbox_viz.setColor(1, 0, 0, 0.5)  # Установите цвет и прозрачность (красный с полупрозрачностью)
+        hitbox_viz.setTransparency(True)
+        hitbox_viz.hide()
+        return hitbox_viz
+
 
     def create_enemies(self):
         for i in range(5):
             enemy = self.loader.loadModel("models/panda-model")
             enemy.reparentTo(self.render)
             enemy.setScale(0.005, 0.005, 0.005)
-            enemy.setPos(LPoint3(random.uniform(-5, 5), random.uniform(10, 20), 0))
+            pos = (random.uniform(-5, 5), random.uniform(10, 20), 0)
+            enemy.setPos(LPoint3(pos))
             self.enemies.append(enemy)
             print(f"Enemy {i} created at {enemy.getPos()}")
+            hit_box_size = (400, 400, 400)
 
-            
-            hitbox = CollisionBox(LPoint3(0, 0, 0), 1, 1, 1)
+            hitbox = CollisionBox(LPoint3(0, 0, 0), hit_box_size)
             hitbox_node = CollisionNode(f'hitbox-{i}')
             hitbox_node.addSolid(hitbox)
-            hitbox_node.setFromCollideMask(BitMask32.allOff())
-            hitbox_node.setIntoCollideMask(BitMask32.bit(1))
             hitbox_np = enemy.attachNewNode(hitbox_node)
-            self.cTrav.addCollider(hitbox_np, self.cHandler)
+            # Создание и привязка визуализации хитбокса
+            hitbox_viz = self.create_hitbox_visual(enemy, hit_box_size)
+            hitbox_viz.show()  # Показываем хитбокс, чтобы он был видим в рендере
+        
+
 
     def update(self, task):
         dt = ClockObject.getGlobalClock().getDt()
@@ -150,51 +163,48 @@ class MyApp(ShowBase):
         self.rotate_camera(dt)
         self.limit_camera_position()
 
-        
+        # Двигаем пули и врагов
         for bullet in self.bullets:
             bullet.setY(bullet, 0.5)
             if bullet.getY() > 50:
-                print("Bullet out of bounds, removing.")
                 bullet.removeNode()
                 self.bullets.remove(bullet)
 
-        
         for enemy in self.enemies:
             enemy.setY(enemy, -0.05)
             if enemy.getY() < -10:
                 enemy.setPos(LPoint3(random.uniform(-5, 5), random.uniform(10, 20), 0))
 
+        # Проходим по коллизиям
         self.cTrav.traverse(self.render)
 
-        
+        # Обрабатываем коллизии
         to_remove_bullets = []
         to_remove_enemies = []
 
-        for entry in self.cHandler.entries:
-            from_node = entry.getFromNode()
-            into_node = entry.getIntoNode()
+        for entry in self.cHandler.get_entries():
+            print('ok')
+            from_node = entry.getFromNodePath().node()
+            into_node = entry.getIntoNodePath().node()
             from_obj = entry.getFromNodePath().getParent()
             into_obj = entry.getIntoNodePath().getParent()
-            print(f"Collision detected: {from_node.getName()} hit {into_node.getName()}")
             if 'bullet' in from_node.getName() and 'hitbox' in into_node.getName():
-                print("Bullet hit enemy hitbox, marking both for removal.")
                 to_remove_bullets.append(from_obj)
                 to_remove_enemies.append(into_obj.getParent())
 
-       
+        # Удаляем пули и врагов
         for bullet in to_remove_bullets:
             if bullet in self.bullets:
-                print(f"Removing bullet at {bullet.getPos()}")
-                bullet.removeNode()
                 self.bullets.remove(bullet)
+                bullet.removeNode()
 
         for enemy in to_remove_enemies:
             if enemy in self.enemies:
-                print(f"Removing enemy at {enemy.getPos()}")
                 enemy.removeNode()
                 self.enemies.remove(enemy)
 
         return task.cont
+
 
     def limit_camera_position(self):
         pos = self.camera.getPos()
